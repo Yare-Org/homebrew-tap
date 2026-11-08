@@ -1,8 +1,8 @@
 class YareDoctor < Formula
   desc "Read-only check of what your coding agents are running on a Mac"
   homepage "https://github.com/Yare-Org/yare-doctor"
-  url "https://github.com/Yare-Org/yare-doctor/archive/refs/tags/v0.5.0.tar.gz"
-  sha256 "8c4d3aaf6b721d8597ead684090c2a5655911c448576ed3efaff6c8dff081057"
+  url "https://github.com/Yare-Org/yare-doctor/archive/refs/tags/v0.6.0.tar.gz"
+  sha256 "46742412368bae60306622d12f0832676f8da9b45126baa3382223398ccb7730"
   license "MIT"
 
   def install
@@ -10,6 +10,6 @@ class YareDoctor < Formula
   end
 
   test do
-    assert_match "yare-doctor 0.5.0", shell_output("#{bin}/yare-doctor --version")
+    assert_match "yare-doctor 0.6.0", shell_output("#{bin}/yare-doctor --version")
   end
 end
