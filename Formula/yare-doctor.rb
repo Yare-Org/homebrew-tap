@@ -1,8 +1,8 @@
 class YareDoctor < Formula
   desc "Read-only check of what your coding agents are running on a Mac"
   homepage "https://github.com/Yare-Org/yare-doctor"
-  url "https://github.com/Yare-Org/yare-doctor/releases/download/v0.1.0/yare-doctor.sh"
-  sha256 "2a79ce05979ab3ba60cc4c539feb38ffc90f4d4d8d7b41fd651bc91d6deaf082"
+  url "https://github.com/Yare-Org/yare-doctor/releases/download/v0.1.1/yare-doctor.sh"
+  sha256 "1f02ccb2f73ff7400c5be054b32ee711e118d211e82ee5331a3029597e471a6a"
   license "MIT"
   head "https://github.com/Yare-Org/yare-doctor.git", branch: "main"
 
