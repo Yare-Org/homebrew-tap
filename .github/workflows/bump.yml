@@ -1,0 +1,74 @@
+name: bump
+
+# Keeps Formula/yare-doctor.rb on the latest GitHub release of yare-doctor, with no secret needed: it runs in this repository
+# with its own token. It only pushes after the new formula has been audited, installed and tested on a clean macOS runner.
+# Runs every six hours, on demand, and when yare-doctor dispatches "yare-doctor-release".
+on:
+  schedule:
+    - cron: '23 */6 * * *'
+  workflow_dispatch:
+  repository_dispatch:
+    types: [yare-doctor-release]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bump
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: true
+      - name: Find the latest release and its checksum
+        id: rel
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh release view -R Yare-Org/yare-doctor --json tagName -q .tagName)
+          [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "latest release tag '$tag' is not vX.Y.Z; leaving the formula alone"; exit 0; }
+          base="https://github.com/Yare-Org/yare-doctor/releases/download/$tag"
+          curl -fsSL -o asset.sh "$base/yare-doctor.sh"
+          sum=$(curl -fsSL "$base/yare-doctor.sh.sha256" | cut -d' ' -f1)
+          [[ "$sum" =~ ^[0-9a-f]{64}$ ]] || { echo "release checksum file is malformed"; exit 1; }
+          # the published checksum must be the checksum of the published file
+          test "$(shasum -a 256 asset.sh | cut -d' ' -f1)" = "$sum"
+          have=$(sed -n 's/^  sha256 "\(.*\)"/\1/p' Formula/yare-doctor.rb)
+          haveurl=$(sed -n 's/^  url "\(.*\)"/\1/p' Formula/yare-doctor.rb)
+          if [ "$have" = "$sum" ] && [ "$haveurl" = "$base/yare-doctor.sh" ]; then echo "formula is already on $tag"; echo "changed=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"; echo "sum=$sum" >> "$GITHUB_OUTPUT"; echo "changed=true" >> "$GITHUB_OUTPUT"
+      - name: Update the formula
+        if: steps.rel.outputs.changed == 'true'
+        env:
+          TAG: ${{ steps.rel.outputs.tag }}
+          SUM: ${{ steps.rel.outputs.sum }}
+        run: |
+          sed -i '' -E \
+            -e "s#^  url \".*\"#  url \"https://github.com/Yare-Org/yare-doctor/releases/download/${TAG}/yare-doctor.sh\"#" \
+            -e "s#^  sha256 \".*\"#  sha256 \"${SUM}\"#" Formula/yare-doctor.rb
+          git diff -- Formula/yare-doctor.rb
+      - name: Trust, audit, install and test the new formula
+        if: steps.rel.outputs.changed == 'true'
+        run: |
+          brew tap yare-org/tap "$GITHUB_WORKSPACE"
+          brew trust --formula yare-org/tap/yare-doctor
+          brew style yare-org/tap/yare-doctor
+          brew audit --strict --online yare-org/tap/yare-doctor
+          brew install yare-org/tap/yare-doctor
+          brew test yare-org/tap/yare-doctor
+          yare-doctor --selftest --no-color
+      - name: Commit to main
+        if: steps.rel.outputs.changed == 'true'
+        env:
+          TAG: ${{ steps.rel.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/yare-doctor.rb
+          git commit -m "yare-doctor ${TAG#v}"
+          git push origin HEAD:main

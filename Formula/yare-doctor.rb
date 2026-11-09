@@ -6,6 +6,11 @@ class YareDoctor < Formula
   license "MIT"
   head "https://github.com/Yare-Org/yare-doctor.git", branch: "main"
 
+  livecheck do
+    url :stable
+    strategy :github_latest
+  end
+
   depends_on :macos
 
   def install
