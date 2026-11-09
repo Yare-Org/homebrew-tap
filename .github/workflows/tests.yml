@@ -1,0 +1,60 @@
+name: tests
+
+# Installs the formula on a clean macOS runner the way a user would, and runs the formula's own test block.
+# Runs on every change to the tap, on a schedule (so a broken release asset or a Homebrew change shows up), and by hand.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  formula:
+    name: install on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Use this checkout as the tap
+        run: |
+          brew update
+          brew tap yare-org/tap "$GITHUB_WORKSPACE"
+      - name: Style and audit
+        run: |
+          brew style yare-org/tap/yare-doctor
+          brew audit --strict --online yare-org/tap/yare-doctor
+      - name: Install
+        run: brew install yare-org/tap/yare-doctor
+      - name: The formula's own test block
+        run: brew test yare-org/tap/yare-doctor
+      - name: The installed script is the published release asset
+        run: |
+          want=$(grep -E '^\s*sha256 ' Formula/yare-doctor.rb | head -1 | sed -E 's/.*"([0-9a-f]{64})".*/\1/')
+          got=$(shasum -a 256 "$(brew --prefix)/bin/yare-doctor" | cut -d' ' -f1)
+          echo "formula $want"; echo "installed $got"
+          test "$want" = "$got"
+      - name: It runs
+        run: |
+          yare-doctor --version
+          yare-doctor --selftest --no-color
+          rc=0; yare-doctor --check --no-color || rc=$?
+          test "$rc" -le 2
+      - name: Uninstall leaves nothing behind
+        run: |
+          brew uninstall yare-org/tap/yare-doctor
+          ! command -v yare-doctor
