@@ -1,0 +1,34 @@
+name: core-ready
+
+# Opens one issue the week yare-doctor meets Homebrew's notability bar for homebrew-core, so submitting is not forgotten.
+# Policy: https://docs.brew.sh/Package-Acceptance-Policy  (30 forks, 30 watchers or 75 stars; 90 / 90 / 225 when the owner submits it).
+# The numbers have to come from people actually using it; this only reads them.
+on:
+  schedule:
+    - cron: '41 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read the numbers and compare
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          read -r stars forks watchers <<< "$(gh api repos/Yare-Org/yare-doctor -q '"\(.stargazers_count) \(.forks_count) \(.subscribers_count)"')"
+          echo "stars=$stars forks=$forks watchers=$watchers"
+          ordinary=false; self=false
+          if (( stars >= 75 || forks >= 30 || watchers >= 30 )); then ordinary=true; fi
+          if (( stars >= 225 || forks >= 90 || watchers >= 90 )); then self=true; fi
+          echo "meets the ordinary bar: $ordinary; meets the self-submission bar: $self"
+          [ "$self" = true ] || exit 0
+          title="yare-doctor can be submitted to homebrew-core"
+          existing=$(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number -q '.[0].number')
+          [ -z "$existing" ] || { echo "issue #$existing already open"; exit 0; }
+          gh issue create -R "$GITHUB_REPOSITORY" --title "$title" --body "yare-doctor now has $stars stars, $forks forks and $watchers watchers, which meets Homebrew's bar even for a project submitted by its owners. Steps are in the README (Getting into homebrew-core). Ask Claude: submit yare-doctor to homebrew-core."
