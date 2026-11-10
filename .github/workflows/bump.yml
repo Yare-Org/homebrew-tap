@@ -7,6 +7,11 @@ on:
   schedule:
     - cron: '23 */6 * * *'
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Do everything except commit to main (used to test this workflow)'
+        type: boolean
+        default: false
   repository_dispatch:
     types: [yare-doctor-release]
 
@@ -63,7 +68,7 @@ jobs:
           brew test yare-org/tap/yare-doctor
           yare-doctor --selftest --no-color
       - name: Commit to main
-        if: steps.rel.outputs.changed == 'true'
+        if: steps.rel.outputs.changed == 'true' && inputs.dry_run != true
         env:
           TAG: ${{ steps.rel.outputs.tag }}
         run: |
